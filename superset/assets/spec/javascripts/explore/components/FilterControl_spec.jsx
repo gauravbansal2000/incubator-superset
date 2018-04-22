@@ -5,8 +5,8 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import { describe, it, beforeEach } from 'mocha';
 import { shallow } from 'enzyme';
-import FilterControl from '../../../../javascripts/explore/components/controls/FilterControl';
-import Filter from '../../../../javascripts/explore/components/controls/Filter';
+import FilterControl from '../../../../src/explore/components/controls/FilterControl';
+import Filter from '../../../../src/explore/components/controls/Filter';
 
 const $ = window.$ = require('jquery');
 
@@ -109,12 +109,15 @@ describe('FilterControl', () => {
     ]);
   });
 
+  before(() => {
+    sinon.stub($, 'ajax');
+  });
+
   after(() => {
     $.ajax.restore();
   });
 
   it('makes a GET request to retrieve value choices', () => {
-    sinon.stub($, 'ajax');
     wrapper.instance().fetchFilterValues(0, 'col1');
     expect($.ajax.getCall(0).args[0].type).to.deep.equal('GET');
     expect($.ajax.getCall(0).args[0].url).to.deep.equal('/superset/filter/qtable/1/col1/');
@@ -213,5 +216,33 @@ describe('FilterControl', () => {
         val: '',
       },
     ]);
+  });
+
+  it('tracks an active filter select ajax request', () => {
+    const spyReq = sinon.spy();
+    $.ajax.reset();
+    $.ajax.onFirstCall().returns(spyReq);
+    wrapper.instance().fetchFilterValues(0, 'col1');
+    expect(wrapper.state().activeRequest).to.equal(spyReq);
+    // Sets active to null after success
+    $.ajax.getCall(0).args[0].success(['opt1', 'opt2', null, '']);
+    expect(wrapper.state().filters[0].valuesLoading).to.equal(false);
+    expect(wrapper.state().filters[0].valueChoices).to.deep.equal(['opt1', 'opt2', null, '']);
+    expect(wrapper.state().activeRequest).to.equal(null);
+  });
+
+
+  it('cancels active request if another is submitted', () => {
+    const spyReq = sinon.spy();
+    spyReq.abort = sinon.spy();
+    $.ajax.reset();
+    $.ajax.onFirstCall().returns(spyReq);
+    wrapper.instance().fetchFilterValues(0, 'col1');
+    expect(wrapper.state().activeRequest).to.equal(spyReq);
+    const spyReq1 = sinon.spy();
+    $.ajax.onSecondCall().returns(spyReq1);
+    wrapper.instance().fetchFilterValues(1, 'col2');
+    expect(spyReq.abort.called).to.equal(true);
+    expect(wrapper.state().activeRequest).to.equal(spyReq1);
   });
 });

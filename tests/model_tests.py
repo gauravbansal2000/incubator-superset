@@ -1,11 +1,19 @@
-import unittest
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import textwrap
 
 from sqlalchemy.engine.url import make_url
 
+from superset import db
 from superset.models.core import Database
+from .base_tests import SupersetTestCase
 
 
-class DatabaseModelTestCase(unittest.TestCase):
+class DatabaseModelTestCase(SupersetTestCase):
 
     def test_database_schema_presto(self):
         sqlalchemy_uri = 'presto://presto.airbnb.io:8080/hive/default'
@@ -67,3 +75,33 @@ class DatabaseModelTestCase(unittest.TestCase):
         model.impersonate_user = False
         user_name = make_url(model.get_sqla_engine(user_name=example_user).url).username
         self.assertNotEquals(example_user, user_name)
+
+    def test_select_star(self):
+        main_db = self.get_main_database(db.session)
+        table_name = 'bart_lines'
+        sql = main_db.select_star(
+            table_name, show_cols=False, latest_partition=False)
+        expected = textwrap.dedent("""\
+        SELECT *
+        FROM {table_name}
+        LIMIT 100""".format(**locals()))
+        assert sql.startswith(expected)
+
+        sql = main_db.select_star(
+            table_name, show_cols=True, latest_partition=False)
+        expected = textwrap.dedent("""\
+        SELECT color,
+               name,
+               path_json,
+               polyline
+        FROM bart_lines
+        LIMIT 100""".format(**locals()))
+        assert sql.startswith(expected)
+
+    def test_grains_dict(self):
+        uri = 'mysql://root@localhost'
+        database = Database(sqlalchemy_uri=uri)
+        d = database.grains_dict()
+        self.assertEquals(d.get('day').function, 'DATE({col})')
+        self.assertEquals(d.get('P1D').function, 'DATE({col})')
+        self.assertEquals(d.get('Time Column').function, '{col}')

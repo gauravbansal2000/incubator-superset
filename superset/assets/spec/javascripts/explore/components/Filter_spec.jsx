@@ -6,8 +6,8 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import { describe, it, beforeEach } from 'mocha';
 import { shallow } from 'enzyme';
-import Filter from '../../../../javascripts/explore/components/controls/Filter';
-import SelectControl from '../../../../javascripts/explore/components/controls/SelectControl';
+import Filter from '../../../../src/explore/components/controls/Filter';
+import SelectControl from '../../../../src/explore/components/controls/SelectControl';
 
 const defaultProps = {
   changeFilter: sinon.spy(),
@@ -46,7 +46,7 @@ describe('Filter', () => {
     expect(wrapper.find(Select)).to.have.lengthOf(2);
     expect(wrapper.find(Button)).to.have.lengthOf(1);
     expect(wrapper.find(SelectControl)).to.have.lengthOf(1);
-    expect(wrapper.find('#select-op').prop('options')).to.have.lengthOf(8);
+    expect(wrapper.find('#select-op').prop('options')).to.have.lengthOf(10);
   });
 
   it('renders five op choices for table datasource', () => {
@@ -58,7 +58,7 @@ describe('Filter', () => {
       filterable_cols: ['country_name'],
     };
     const druidWrapper = shallow(<Filter {...props} />);
-    expect(druidWrapper.find('#select-op').prop('options')).to.have.lengthOf(9);
+    expect(druidWrapper.find('#select-op').prop('options')).to.have.lengthOf(11);
   });
 
   it('renders six op choices for having filter', () => {
@@ -87,5 +87,29 @@ describe('Filter', () => {
     };
     const regexWrapper = shallow(<Filter {...props} />);
     expect(regexWrapper.find('input')).to.have.lengthOf(1);
+  });
+
+  it('renders `input` for text filters', () => {
+    const props = Object.assign({}, defaultProps);
+    ['>=', '>', '<=', '<'].forEach((op) => {
+      props.filter = {
+        col: 'col1',
+        op,
+        value: 'val',
+      };
+      wrapper = shallow(<Filter {...props} />);
+      expect(wrapper.find('input')).to.have.lengthOf(1);
+    });
+  });
+
+  it('replaces null filter values with empty string in `input`', () => {
+    const props = Object.assign({}, defaultProps);
+    props.filter = {
+      col: 'col1',
+      op: '>=',
+      value: null,
+    };
+    wrapper = shallow(<Filter {...props} />);
+    expect(wrapper.find('input').props().value).to.equal('');
   });
 });
